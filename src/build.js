@@ -1,0 +1,15 @@
+const fs=require('fs'),path=require('path');
+const r=f=>fs.readFileSync(path.join(__dirname,'src',f),'utf8');
+const safe=s=>s.replace(/<\/script/gi,'<\\/script');
+let html=r('index.html').replace('/*CSS*/',()=>r('styles.css')).replace('/*CORE*/',()=>safe(r('core.js'))).replace('/*STORAGE*/',()=>safe(r('storage.js'))).replace('/*DEMO*/',()=>safe(r('demo.js'))).replace('/*APP*/',()=>safe(r('app.js')));
+fs.mkdirSync('dist/pwa',{recursive:true});
+fs.writeFileSync('dist/index.html',html.replace('<!--PWA-->',''));
+fs.writeFileSync('dist/pwa/index.html',html.replace('<!--PWA-->','<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="apple-touch-icon" href="icon-192.png">'));
+const icon='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0f6e6a"/><text x="256" y="320" font-family="Arial,Helvetica,sans-serif" font-size="210" font-weight="800" fill="#fff" text-anchor="middle">SC</text></svg>';
+fs.writeFileSync('dist/pwa/icon.svg',icon);
+fs.writeFileSync('dist/pwa/manifest.webmanifest',JSON.stringify({name:'Smart Care | الإدارة المالية والسيولة',short_name:'Smart Care',lang:'ar',dir:'rtl',start_url:'./',scope:'./',display:'standalone',background_color:'#f4f5f7',theme_color:'#0f6e6a',icons:[{src:'icon-192.png',sizes:'192x192',type:'image/png'},{src:'icon-512.png',sizes:'512x512',type:'image/png'},{src:'icon.svg',sizes:'any',type:'image/svg+xml',purpose:'any maskable'}]},null,2));
+fs.writeFileSync('dist/pwa/sw.js',`const V='scf-v1';const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg'];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(hit=>{const net=fetch(e.request).then(res=>{if(res&&(res.ok||res.type==='opaque')){const cp=res.clone();caches.open(V).then(c=>c.put(e.request,cp))}return res}).catch(()=>hit);return hit||net}))});`);
+console.log('built', (html.length/1024).toFixed(0)+'KB');
